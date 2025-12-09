@@ -191,6 +191,39 @@
     "key": "cmd+j",
     "command": "github.copilot.acceptInlineSuggestion",
     "when": "github.copilot.inlineSuggestionVisible"
+  },
+  {
+    "key": "cmd+shift+left",
+    "command": "workbench.action.moveEditorLeftInGroup"
+  },
+  {
+    "key": "cmd+shift+right",
+    "command": "workbench.action.moveEditorRightInGroup"
+  },
+  {
+    "key": "cmd+l",
+    "command": "workbench.files.action.focusFilesExplorer"
+  },
+  {
+    "key": "cmd+l",
+    "command": "-expandLineSelection",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "cmd+d",
+    "command": "vscode-neovim.send",
+    "args": "<C-d>",
+    "when": "neovim.mode == normal"
+  },
+  {
+    "key": "cmd+u",
+    "command": "vscode-neovim.send",
+    "args": "<C-u>",
+    "when": "neovim.mode == normal"
+  },
+  {
+    "key": "cmd+h",
+    "command": "workbench.action.focusActiveEditorGroup"
   }
 ]
 
