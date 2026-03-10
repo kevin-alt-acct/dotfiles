@@ -27,3 +27,6 @@ bindkey '\e[B' history-beginning-search-forward
 
 # Initialize completion
 autoload -U compinit; compinit
+
+# Increase Node.js heap size
+export NODE_OPTIONS=--max-old-space-size=4096
