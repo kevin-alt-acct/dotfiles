@@ -8,6 +8,7 @@ config.check_for_updates = true
 
 -- This is where you actually apply your config choices
 
+config.window_close_confirmation = "NeverPrompt"
 config.hide_tab_bar_if_only_one_tab = true
 config.tab_bar_at_bottom = true
 
@@ -104,7 +105,7 @@ wezterm.on("trigger-workspace", function(cmd)
   print(project_dir)
 
   local tab, pane, window = mux.spawn_window({
-    workspace = "work",
+    workspace = args[1],
     cwd = project_dir,
   })
 
@@ -115,9 +116,12 @@ wezterm.on("trigger-workspace", function(cmd)
 
   local gitTab, gitPane = window:spawn_tab({ cwd = project_dir })
   gitPane:send_text("lazygit\r\n")
-  --
+
+  local claudeTab, claudePane = window:spawn_tab({ cwd = project_dir })
+  claudePane:send_text("claude\r\n")
+
   tab:activate()
-  mux.set_active_workspace("work")
+  mux.set_active_workspace(args[1])
 
   window:gui_window():maximize()
 end)
@@ -144,6 +148,19 @@ wezterm.on("gui-startup", function(cmd)
     window:gui_window():set_position(active.x, active.y)
     window:gui_window():set_inner_size(active.width, active.height)
     window:gui_window():maximize()
+  end
+end)
+
+wezterm.on("update-right-status", function(window, pane)
+  local workspace = window:active_workspace()
+  if workspace ~= "default" then
+    window:set_right_status(wezterm.format({
+      { Background = { Color = '#966dd9' } },
+      { Foreground = { Color = '#ffffff' } },
+      { Text = '   ' .. workspace .. '   ' },
+    }))
+  else
+    window:set_right_status("")
   end
 end)
 
