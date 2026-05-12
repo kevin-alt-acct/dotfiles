@@ -30,3 +30,4 @@ autoload -U compinit; compinit
 
 # Increase Node.js heap size
 export NODE_OPTIONS=--max-old-space-size=4096
+export PATH="$HOME/.local/bin:$PATH"
