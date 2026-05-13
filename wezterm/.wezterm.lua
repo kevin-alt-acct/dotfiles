@@ -115,7 +115,7 @@ wezterm.on("trigger-workspace", function(cmd)
   pane:send_text("nvim\r\n")
 
   local nodeTab, nodePane = window:spawn_tab({ cwd = project_dir })
-  nodePane:send_text(args[2] .. "\r\n")
+  nodePane:send_text("cd .\r\n" .. args[2] .. "\r\n")
 
   local gitTab, gitPane = window:spawn_tab({ cwd = project_dir })
   gitPane:send_text("lazygit\r\n")
