@@ -1,0 +1,25 @@
+{
+  "enabledPlugins": {
+    "caveman@caveman": true
+  },
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": ["Roboting"]
+  },
+  "effortLevel": "medium",
+  "autoUpdatesChannel": "latest",
+  "editorMode": "vim",
+  "skipAutoPermissionPrompt": true,
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -ExecutionPolicy Bypass -File \"C:\\Users\\Q1524\\.claude\\hooks\\statusline.ps1\""
+  }
+}
