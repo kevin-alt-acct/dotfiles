@@ -48,9 +48,10 @@ if (Test-Path $vueCheckFile) {
 }
 
 if ($shouldCheck) {
+    # Write timestamp first to prevent parallel shells from racing into the update
+    try { Get-Date -Format "o" | Out-File $vueCheckFile -Force } catch {}
     Push-Location "C:\tools"
     & "C:\tools\update-vue-language-server.ps1"
     Pop-Location
-    Get-Date -Format "o" | Out-File $vueCheckFile
 }
 
