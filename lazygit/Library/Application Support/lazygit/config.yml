@@ -1,8 +1,11 @@
-# git:
-#   paging:
-#     colorArg: always
-#     pager: delta --dark --paging=never --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"
-#       # Whether to show the divergence from the base branch in the branches view.
-  # One of: 'none' | 'onlyArrow'  | 'arrowAndNumber'
+git:
+  commit:
+    autoWrapWidth: 80
+  # paging:
+  #   colorArg: always
+  #   pager: delta --dark --paging=never --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"
+
 gui:
+  # Whether to show the divergence from the base branch in the branches view.
+  # One of: 'none' | 'onlyArrow' | 'arrowAndNumber'
   showDivergenceFromBaseBranch: arrowAndNumber
