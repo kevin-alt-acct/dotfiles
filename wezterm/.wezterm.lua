@@ -120,6 +120,9 @@ wezterm.on("trigger-workspace", function(cmd)
   local claudeTab, claudePane = window:spawn_tab({ cwd = project_dir })
   claudePane:send_text("claude\r\n")
 
+  local codexTab, codexPane = window:spawn_tab({ cwd = project_dir })
+  codexPane:send_text("codex\r\n")
+
   tab:activate()
   mux.set_active_workspace(args[1])
 
