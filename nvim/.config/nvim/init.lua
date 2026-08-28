@@ -106,9 +106,9 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 })
 
 vim.api.nvim_create_autocmd("FileType", {
-  desc = "Continue Vue comments on new lines",
-  group = vim.api.nvim_create_augroup("vue-comment-continuation", { clear = true }),
-  pattern = "vue",
+  desc = "Continue comments on new lines",
+  group = vim.api.nvim_create_augroup("comment-continuation", { clear = true }),
+  pattern = { "vue", "typescript", "javascript", "typescriptreact", "javascriptreact" },
   callback = function()
     vim.opt_local.autoindent = true
     vim.opt_local.cindent = false
