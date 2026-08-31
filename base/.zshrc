@@ -27,6 +27,7 @@ bindkey '\e[B' history-beginning-search-forward
 
 # Initialize completion
 autoload -U compinit; compinit
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 
 # Increase Node.js heap size
 export NODE_OPTIONS=--max-old-space-size=4096
