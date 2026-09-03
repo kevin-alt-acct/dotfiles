@@ -31,7 +31,6 @@ function dart-pub-list { dart pub deps -s compact --no-dev }
 Set-Alias -Name dpl -Value dart-pub-list
 
 Set-Alias mux "~/scripts/mux.bat"
-fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
 
 # Auto-update Vue Language Server (once per day)
 $vueCheckFile = "$env:TEMP\.vue-language-server-last-check"
