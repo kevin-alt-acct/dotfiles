@@ -1,18 +1,6 @@
 -- Suppress built-in intro screen (flashes before custom dashboard)
 vim.opt.shortmess:append("I")
 
--- Workaround: Neovim 0.12 changed directive match tables from table<id,TSNode>
--- to table<id,TSNode[]>, but nvim-treesitter's shim still expects single nodes.
--- Unwrap array captures and guard nil before forwarding.
-local _orig_get_node_text = vim.treesitter.get_node_text
-vim.treesitter.get_node_text = function(node, source, opts)
-  if type(node) == "table" then
-    node = node[1]
-  end
-  if node == nil then return "" end
-  return _orig_get_node_text(node, source, opts)
-end
-
 -- Disable netrw
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
@@ -234,7 +222,6 @@ require("lazy").setup({
   {
     "nvim-telescope/telescope.nvim",
     event = "VimEnter",
-    branch = "0.1.x",
     dependencies = {
       "nvim-lua/plenary.nvim",
       {
@@ -569,9 +556,11 @@ require("lazy").setup({
 
   {
     "nvim-treesitter/nvim-treesitter",
+    branch = "main",
+    lazy = false,
     build = ":TSUpdate",
     opts = {
-      ensure_installed = {
+      parsers = {
         "bash",
         "c",
         "csv",
@@ -594,28 +583,41 @@ require("lazy").setup({
         "markdown_inline",
         "python",
       },
-      auto_install = true,
-      highlight = {
-        enable = true,
-        additional_vim_regex_highlighting = { "ruby", "html" },
-        disable = function(lang, _)
-          -- Workaround: nil node in conceal query predicates on Neovim 0.12
-          return lang == "markdown_inline"
-        end,
-      },
-      indent = { enable = true, disable = { "ruby", "html" } },
-      sync_install = false, -- Install parsers asynchronously
+      regex_highlight_langs = { ruby = true, html = true },
+      -- vue keeps the manual indent set up in the vue-comment-continuation autocmd
+      no_indent_langs = { ruby = true, html = true, vue = true },
     },
     config = function(_, opts)
-      -- Guard requires so headless/setup runs won't error if plugin isn't yet installed.
-      local ok_install, install = pcall(require, "nvim-treesitter.install")
-      if ok_install and install then
-        install.prefer_git = true
+      -- tree-sitter build defaults to cl.exe, MSVC is not installed here
+      if vim.env.CC == nil and vim.fn.executable("cl") == 0 and vim.fn.executable("gcc") == 1 then
+        vim.env.CC = "gcc"
       end
-      local ok_configs, configs = pcall(require, "nvim-treesitter.configs")
-      if ok_configs and configs then
-        configs.setup(opts)
-      end
+      local ts = require("nvim-treesitter")
+      ts.install(opts.parsers)
+
+      vim.api.nvim_create_autocmd("FileType", {
+        desc = "Start treesitter highlight and indent, installing missing parsers",
+        group = vim.api.nvim_create_augroup("treesitter-start", { clear = true }),
+        callback = function(args)
+          local lang = vim.treesitter.language.get_lang(args.match)
+          if not lang then
+            return
+          end
+          if not vim.treesitter.language.add(lang) then
+            if vim.tbl_contains(ts.get_available(), lang) then
+              ts.install(lang)
+            end
+            return
+          end
+          vim.treesitter.start(args.buf, lang)
+          if opts.regex_highlight_langs[lang] then
+            vim.bo[args.buf].syntax = "ON"
+          end
+          if not opts.no_indent_langs[lang] then
+            vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+          end
+        end,
+      })
     end,
   },
 
