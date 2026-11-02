@@ -171,7 +171,7 @@ ensure_codex_top_level_keys() {
     local target="$codex_dir/config.toml"
     local line key
 
-    while IFS= read -r line; do
+    grep -E '^[A-Za-z_]+ *=' "$shared_ai/codex/config.toml" | while IFS= read -r line; do
         key="${line%% =*}"
         if [ -z "$key" ] || grep -q "^$key *=" "$target"; then
             continue
@@ -179,7 +179,7 @@ ensure_codex_top_level_keys() {
         { echo "$line"; cat "$target"; } > "$target.tmp-$stamp"
         mv "$target.tmp-$stamp" "$target"
         echo "  Added $key to $target"
-    done < <(grep -E '^[A-Za-z_]+ *=' "$shared_ai/codex/config.toml")
+    done
 }
 
 # cli-config.json is Cursor-managed (auth, model, permissions). Only our keys are merged in.
@@ -193,7 +193,7 @@ merge_cursor_cli_config() {
     if [ -f "$target" ]; then
         jq -s '.[0] * .[1]' "$target" "$base" > "$merged"
     else
-        jq -s '.[0] * .[1]' <(echo "$minimal") "$base" > "$merged"
+        echo "$minimal" | jq -s '.[0] * .[1]' - "$base" > "$merged"
     fi
 
     install_generated "$merged" "$target"
