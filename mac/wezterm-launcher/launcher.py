@@ -126,6 +126,7 @@ class LauncherApp:
         except Exception as e:
             self._show_error(str(e))
             return
+        save_recent(entry["workspace"], entry["cmd"])
         self.root.destroy()
 
     def _on_recent_select(self, _event):
