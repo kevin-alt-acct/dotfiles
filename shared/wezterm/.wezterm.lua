@@ -445,8 +445,13 @@ wezterm.on("trigger-workspace", function(cmd)
 
   local workspace = args[1] or "work"
   local project_dir = load_projects_root() .. "/" .. workspace
+  -- "@root" opens the projects root itself with only nvim and the agents.
+  local is_root = workspace == "@root"
+  if is_root then
+    project_dir = load_projects_root()
+    workspace = project_dir:gsub("[/\\]+$", ""):match("([^/\\]+)$") or "root"
   -- An absolute path (recap resume) opens that dir, named by its last segment.
-  if workspace:match("^/") or workspace:match("^%a:[/\\]") then
+  elseif workspace:match("^/") or workspace:match("^%a:[/\\]") then
     project_dir = workspace
     workspace = workspace:gsub("[/\\]+$", ""):match("([^/\\]+)$") or "work"
   end
@@ -461,18 +466,20 @@ wezterm.on("trigger-workspace", function(cmd)
   tab:set_title("nvim")
   pane:send_text("nvim\r")
 
-  if server_cmd then
-    local nodeTab, nodePane = window:spawn_tab({ cwd = project_dir })
-    nodeTab:set_title("server")
-    nodePane:send_text(server_cmd .. "\r")
-  else
-    local shellTab = window:spawn_tab({ cwd = project_dir })
-    shellTab:set_title("shell")
-  end
+  if not is_root then
+    if server_cmd then
+      local nodeTab, nodePane = window:spawn_tab({ cwd = project_dir })
+      nodeTab:set_title("server")
+      nodePane:send_text(server_cmd .. "\r")
+    else
+      local shellTab = window:spawn_tab({ cwd = project_dir })
+      shellTab:set_title("shell")
+    end
 
-  local gitTab, gitPane = window:spawn_tab({ cwd = project_dir })
-  gitTab:set_title("lazygit")
-  gitPane:send_text("lazygit\r")
+    local gitTab, gitPane = window:spawn_tab({ cwd = project_dir })
+    gitTab:set_title("lazygit")
+    gitPane:send_text("lazygit\r")
+  end
 
   -- wezterm-launcher appends args[3] when its "claude --chrome" box is checked.
   -- args[4] comes from the recap viewer's Launch button.
@@ -562,6 +569,8 @@ wezterm.on("update-right-status", function(window, pane)
       if success then
         local root = stdout:gsub("%s+$", "")
         repo_name = root:match("([^\\/]+)$") or ""
+      elseif normalize_cwd(cwd) == normalize_cwd(load_projects_root()) then
+        repo_name = "git root"
       end
       last_cwd = cwd
       last_repo = repo_name
