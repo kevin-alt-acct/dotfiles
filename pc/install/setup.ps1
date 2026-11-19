@@ -52,7 +52,7 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 Write-Host "Installing packages via Chocolatey..." -ForegroundColor Green
 Write-Host "This may take several minutes. Please be patient..." -ForegroundColor Yellow
 
-$packages = @("git", "neovim", "yazi", "wezterm", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed")
+$packages = @("git", "neovim", "yazi", "wezterm", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed", "python")
 foreach ($package in $packages) {
     Write-Host "Installing $package..." -ForegroundColor Gray
     choco install -y $package --limit-output
@@ -102,6 +102,8 @@ npm install -g @githubnext/github-copilot-cli
 Write-Host "Installing PowerShell modules..." -ForegroundColor Green
 Install-Module -Name posh-git -Scope CurrentUser -Force -SkipPublisherCheck
 Install-Module -Name PSReadLine -Scope CurrentUser -Force -SkipPublisherCheck
+# This script runs in Windows PowerShell 5, whose module dir pwsh 7 does not search. PSReadLine ships with pwsh.
+pwsh -NoProfile -Command "Install-Module -Name posh-git -Scope CurrentUser -Force -SkipPublisherCheck"
 
 $nvimTarget = "$env:LOCALAPPDATA\nvim"
 $nvimSource = "$dotfilesDir\pc\nvim\.config\nvim"
