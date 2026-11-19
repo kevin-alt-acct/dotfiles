@@ -195,12 +195,16 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 Write-Host "Installing packages via Chocolatey..." -ForegroundColor Green
 Write-Host "This may take several minutes. Please be patient..." -ForegroundColor Yellow
 
-$packages = @("git", "neovim", "yazi", "wezterm", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed", "python", "azure-cli", "jq")
+$packages = @("git", "neovim", "yazi", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed", "python", "azure-cli", "jq")
 foreach ($package in $packages) {
     Write-Host "Installing $package..." -ForegroundColor Gray
     choco install -y $package --limit-output
     Start-Sleep -Seconds 3
 }
+
+# Stable 20240203 (the only choco version) flickers the cursor under synchronized output
+Write-Host "Installing WezTerm nightly..." -ForegroundColor Green
+winget install --exact --id wez.wezterm.nightly --silent --accept-source-agreements --accept-package-agreements
 
 # scoop bucket add shells out to the git choco just installed
 Update-SessionPath
