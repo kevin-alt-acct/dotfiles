@@ -144,6 +144,26 @@ function Repair-MingwToolchain {
     }
 }
 
+function New-RunProgramRemap {
+    param(
+        [Parameter(Mandatory = $true)][string]$OriginalKeys,
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string]$Arguments = ""
+    )
+    return [pscustomobject]@{
+        originalKeys                   = $OriginalKeys
+        exactMatch                     = $false
+        operationType                  = 1
+        runProgramFilePath             = $FilePath
+        runProgramArgs                 = $Arguments
+        runProgramStartInDir           = Split-Path $FilePath -Parent
+        runProgramElevationLevel       = 0
+        runProgramAlreadyRunningAction = 1
+        runProgramStartWindowType      = 0
+        unicodeText                    = "*Unsupported*"
+    }
+}
+
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Host "Restarting as Administrator..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2
@@ -175,7 +195,7 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 Write-Host "Installing packages via Chocolatey..." -ForegroundColor Green
 Write-Host "This may take several minutes. Please be patient..." -ForegroundColor Yellow
 
-$packages = @("git", "neovim", "yazi", "wezterm", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed", "python")
+$packages = @("git", "neovim", "yazi", "wezterm", "fzf", "ripgrep", "powershell-core", "powertoys", "tree-sitter", "mingw", "sed", "python", "azure-cli", "jq")
 foreach ($package in $packages) {
     Write-Host "Installing $package..." -ForegroundColor Gray
     choco install -y $package --limit-output
@@ -185,6 +205,11 @@ foreach ($package in $packages) {
 # scoop bucket add shells out to the git choco just installed
 Update-SessionPath
 Repair-MingwToolchain
+
+if (Get-Command az -ErrorAction SilentlyContinue) {
+    Write-Host "Adding az devops extension..." -ForegroundColor Green
+    az extension add --name azure-devops --upgrade --only-show-errors
+}
 
 if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Scoop..." -ForegroundColor Green
@@ -344,6 +369,17 @@ if (Test-Path $muxTarget) {
 Write-Host "Creating mux.sh symlink..." -ForegroundColor Green
 New-Item -ItemType SymbolicLink -Path $muxTarget -Target $muxSource -Force | Out-Null
 
+$scriptsDir = "$env:USERPROFILE\scripts"
+if (!(Test-Path $scriptsDir)) {
+    Write-Host "Cloning scripts..." -ForegroundColor Green
+    git clone https://github.com/kevin-alt-acct/scripts.git $scriptsDir
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Warning: scripts clone failed; Win+Shift+P stays dead until $scriptsDir exists" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Scripts directory already exists" -ForegroundColor Gray
+}
+
 Write-Host "Setting up hotkey host..." -ForegroundColor Green
 $hotkeyHostDir = Join-Path $dotfilesDir "pc\hotkey-host"
 $hotkeyHostScript = Join-Path $hotkeyHostDir "hotkey.ps1"
@@ -368,7 +404,7 @@ try {
     Write-Host "  Warning: hotkey host setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
-Write-Host "Configuring PowerToys Win+Shift+R -> wezterm-launcher..." -ForegroundColor Green
+Write-Host "Configuring PowerToys Win+Shift+R -> wezterm-launcher, Win+Shift+P -> script-selector..." -ForegroundColor Green
 try {
     $powerToysDir = Join-Path $dotfilesDir "pc\powertoys"
     . (Join-Path $powerToysDir "PowerToysSettings.ps1")
@@ -376,25 +412,22 @@ try {
     $kbmSettingsPath = Join-Path $kbmDir "settings.json"
     $kbmDefaultPath = Join-Path $kbmDir "default.json"
     $launcherBat = Join-Path $dotfilesDir "pc\wezterm-launcher\launch.bat"
-    $launcherDir = Split-Path $launcherBat -Parent
 
-    # Win+Shift+R as PowerToys UI serializes it (VK_WIN_BOTH=260, VK_SHIFT=16, R=82)
-    $hotkeyOriginalKeys = "260;16;82"
-    $hotkeyOriginalKeysLegacy = "91;160;82"
+    # Win+Shift+R and Win+Shift+P as PowerToys UI serializes them (VK_WIN_BOTH=260, VK_SHIFT=16, R=82, P=80)
+    $launcherKeys = "260;16;82"
+    $scriptsKeys = "260;16;80"
     # trigger.exe wakes the resident host, opening the launcher in ~0.2s vs ~2.5s for launch.bat.
     $hasTrigger = Test-Path $triggerExe
-    $launcherRemap = [pscustomobject]@{
-        originalKeys                   = $hotkeyOriginalKeys
-        exactMatch                     = $false
-        operationType                  = 1
-        runProgramFilePath             = if ($hasTrigger) { $triggerExe } else { $launcherBat }
-        runProgramArgs                 = if ($hasTrigger) { "launcher" } else { "" }
-        runProgramStartInDir           = if ($hasTrigger) { Split-Path $triggerExe -Parent } else { $launcherDir }
-        runProgramElevationLevel       = 0
-        runProgramAlreadyRunningAction = 1
-        runProgramStartWindowType      = 0
-        unicodeText                    = "*Unsupported*"
-    }
+    $hotkeyRemaps = @(
+        if ($hasTrigger) {
+            New-RunProgramRemap -OriginalKeys $launcherKeys -FilePath $triggerExe -Arguments "launcher"
+            New-RunProgramRemap -OriginalKeys $scriptsKeys -FilePath $triggerExe -Arguments "scripts"
+        } else {
+            New-RunProgramRemap -OriginalKeys $launcherKeys -FilePath $launcherBat
+        }
+    )
+    # Older files spell the same combos with VK_LWIN=91 and VK_LSHIFT=160.
+    $hotkeyKeys = @($hotkeyRemaps | ForEach-Object { $_.originalKeys; $_.originalKeys -replace '^260;16;', '91;160;' })
 
     New-Item -ItemType Directory -Path $kbmDir -Force | Out-Null
 
@@ -411,9 +444,9 @@ try {
     if ($existingKbm -and $existingKbm.remapShortcuts -and $existingKbm.remapShortcuts.global) {
         foreach ($remap in @($existingKbm.remapShortcuts.global)) {
             if (-not $remap) { continue }
-            if ($remap.originalKeys -eq $hotkeyOriginalKeys -or $remap.originalKeys -eq $hotkeyOriginalKeysLegacy) { continue }
+            if ($hotkeyKeys -contains $remap.originalKeys) { continue }
             if ($dotfileGlobalKeys -contains $remap.originalKeys) { continue }
-            # Hand-made bindings to other host targets (e.g. Win+Shift+P -> scripts) follow trigger.exe to this checkout.
+            # Hand-made bindings to other host targets follow trigger.exe to this checkout.
             if ($hasTrigger -and $remap.runProgramFilePath -and (Split-Path $remap.runProgramFilePath -Leaf) -eq "trigger.exe") {
                 $remap.runProgramFilePath = $triggerExe
                 if ($remap.runProgramStartInDir) { $remap.runProgramStartInDir = Split-Path $triggerExe -Parent }
@@ -430,7 +463,7 @@ try {
     }
     foreach ($remap in $dotfileGlobal) { $globalRemaps.Add($remap) }
     foreach ($remap in $dotfileAppSpecific) { $appSpecificRemaps.Add($remap) }
-    $globalRemaps.Add($launcherRemap)
+    foreach ($remap in $hotkeyRemaps) { $globalRemaps.Add($remap) }
 
     $kbmConfig = [pscustomobject]@{
         remapKeys            = if ($existingKbm -and $existingKbm.remapKeys) { $existingKbm.remapKeys } else { [pscustomobject]@{ inProcess = @() } }
@@ -473,13 +506,13 @@ try {
     }
     $engine = Get-Process -Name "PowerToys.KeyboardManagerEngine" -ErrorAction SilentlyContinue
     if ($engine) {
-        Write-Host "  Keyboard Manager on; Win+Shift+R -> wezterm-launcher; logon guard registered" -ForegroundColor Green
+        Write-Host "  Keyboard Manager on; Win+Shift+R -> wezterm-launcher; Win+Shift+P -> script-selector; logon guard registered" -ForegroundColor Green
     } else {
         Write-Host "  PowerToys started but Keyboard Manager engine not seen yet - open PowerToys settings and enable Keyboard Manager" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "  Warning: PowerToys hotkey setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    Write-Host "  You can set Win+Shift+R manually in PowerToys > Keyboard Manager > Remap a shortcut" -ForegroundColor Yellow
+    Write-Host "  You can set Win+Shift+R and Win+Shift+P manually in PowerToys > Keyboard Manager > Remap a shortcut" -ForegroundColor Yellow
 }
 
 Write-Host "Installing FiraCode Nerd Font..." -ForegroundColor Green
@@ -505,6 +538,6 @@ Write-Host "Restart your terminal and run 'nvim'" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Run 'shared\install\setup_git.ps1' to configure git user and credentials" -ForegroundColor Yellow
-Write-Host "2. Press Win+Shift+R to open wezterm-launcher (requires PowerToys running)" -ForegroundColor Yellow
+Write-Host "2. Press Win+Shift+R to open wezterm-launcher, Win+Shift+P for script-selector (requires PowerToys running)" -ForegroundColor Yellow
 Write-Host ""
 Read-Host "Press Enter to exit"
