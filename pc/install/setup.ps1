@@ -538,6 +538,7 @@ Write-Host "Restart your terminal and run 'nvim'" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Run 'shared\install\setup_git.ps1' to configure git user and credentials" -ForegroundColor Yellow
-Write-Host "2. Press Win+Shift+R to open wezterm-launcher, Win+Shift+P for script-selector (requires PowerToys running)" -ForegroundColor Yellow
+Write-Host "2. Run 'shared\install\setup_azure.ps1' to configure Azure DevOps defaults, reviewers, and token" -ForegroundColor Yellow
+Write-Host "3. Press Win+Shift+R to open wezterm-launcher, Win+Shift+P for script-selector (requires PowerToys running)" -ForegroundColor Yellow
 Write-Host ""
 Read-Host "Press Enter to exit"
