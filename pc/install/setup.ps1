@@ -222,19 +222,21 @@ Write-Host "Setting up hotkey host..." -ForegroundColor Green
 $hotkeyHostDir = Join-Path $dotfilesDir "pc\hotkey-host"
 $hotkeyHostScript = Join-Path $hotkeyHostDir "hotkey.ps1"
 $triggerExe = Join-Path $hotkeyHostDir "lib\trigger.exe"
-$hotkeyHostArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Sta -File `"$hotkeyHostScript`""
+# With Windows Terminal as default terminal, -WindowStyle Hidden only minimizes, leaving a taskbar entry. Headless conhost never makes a window.
+$hotkeyHostExe = "$env:WINDIR\System32\conhost.exe"
+$hotkeyHostArgs = "--headless `"$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoProfile -ExecutionPolicy Bypass -Sta -File `"$hotkeyHostScript`""
 try {
     & (Join-Path $hotkeyHostDir "build.ps1")
 
     $startupLnk = Join-Path ([Environment]::GetFolderPath("Startup")) "WeztermHotkey.lnk"
     $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($startupLnk)
-    $shortcut.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+    $shortcut.TargetPath = $hotkeyHostExe
     $shortcut.Arguments = $hotkeyHostArgs
     $shortcut.WorkingDirectory = $hotkeyHostDir
     $shortcut.Save()
 
     # Launching the host replaces any running instance.
-    Start-Process powershell.exe -ArgumentList $hotkeyHostArgs -WindowStyle Hidden
+    Start-Process $hotkeyHostExe -ArgumentList $hotkeyHostArgs -WorkingDirectory $hotkeyHostDir
     Write-Host "  Built lib\, added Startup shortcut, started host" -ForegroundColor Green
 } catch {
     Write-Host "  Warning: hotkey host setup failed: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -270,13 +272,21 @@ try {
 
     New-Item -ItemType Directory -Path $kbmDir -Force | Out-Null
 
+    # Shortcut remaps kept in dotfiles; they replace any existing remap on the same keys (and app).
+    $dotfileRemaps = Read-JsonFile (Join-Path $powerToysDir "remaps.json")
+    $dotfileGlobal = @(if ($dotfileRemaps) { $dotfileRemaps.global })
+    $dotfileAppSpecific = @(if ($dotfileRemaps) { $dotfileRemaps.appSpecific })
+    $dotfileGlobalKeys = @($dotfileGlobal | ForEach-Object { $_.originalKeys })
+    $dotfileAppSpecificKeys = @($dotfileAppSpecific | ForEach-Object { "$($_.targetApp)|$($_.originalKeys)" })
+
     $existingKbm = Read-JsonFile $kbmDefaultPath
     $globalRemaps = [System.Collections.Generic.List[object]]::new()
-    $appSpecificRemaps = @()
+    $appSpecificRemaps = [System.Collections.Generic.List[object]]::new()
     if ($existingKbm -and $existingKbm.remapShortcuts -and $existingKbm.remapShortcuts.global) {
         foreach ($remap in @($existingKbm.remapShortcuts.global)) {
             if (-not $remap) { continue }
             if ($remap.originalKeys -eq $hotkeyOriginalKeys -or $remap.originalKeys -eq $hotkeyOriginalKeysLegacy) { continue }
+            if ($dotfileGlobalKeys -contains $remap.originalKeys) { continue }
             # Hand-made bindings to other host targets (e.g. Win+Shift+P -> scripts) follow trigger.exe to this checkout.
             if ($hasTrigger -and $remap.runProgramFilePath -and (Split-Path $remap.runProgramFilePath -Leaf) -eq "trigger.exe") {
                 $remap.runProgramFilePath = $triggerExe
@@ -286,8 +296,14 @@ try {
         }
     }
     if ($existingKbm -and $existingKbm.remapShortcuts -and $existingKbm.remapShortcuts.appSpecific) {
-        $appSpecificRemaps = @($existingKbm.remapShortcuts.appSpecific)
+        foreach ($remap in @($existingKbm.remapShortcuts.appSpecific)) {
+            if (-not $remap) { continue }
+            if ($dotfileAppSpecificKeys -contains "$($remap.targetApp)|$($remap.originalKeys)") { continue }
+            $appSpecificRemaps.Add($remap)
+        }
     }
+    foreach ($remap in $dotfileGlobal) { $globalRemaps.Add($remap) }
+    foreach ($remap in $dotfileAppSpecific) { $appSpecificRemaps.Add($remap) }
     $globalRemaps.Add($launcherRemap)
 
     $kbmConfig = [pscustomobject]@{
@@ -295,7 +311,7 @@ try {
         remapKeysToText      = if ($existingKbm -and $existingKbm.remapKeysToText) { $existingKbm.remapKeysToText } else { [pscustomobject]@{ inProcess = @() } }
         remapShortcuts       = [pscustomobject]@{
             global      = @($globalRemaps.ToArray())
-            appSpecific = @($appSpecificRemaps)
+            appSpecific = @($appSpecificRemaps.ToArray())
         }
         remapShortcutsToText = if ($existingKbm -and $existingKbm.remapShortcutsToText) {
             $existingKbm.remapShortcutsToText
